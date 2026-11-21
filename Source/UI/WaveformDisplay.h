@@ -20,6 +20,8 @@ public:
 private:
     void drawLane (juce::Graphics& graphics,
                    const juce::AudioBuffer<float>* source,
+                   double sourceSampleRate,
+                   double timelineDuration,
                    juce::Colour colour,
                    const juce::String& label,
                    const juce::Rectangle<int>& laneBounds) const;

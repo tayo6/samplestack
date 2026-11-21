@@ -31,25 +31,23 @@ void WaveformDisplay::paint (juce::Graphics& graphics)
     const int labelWidth = 116;
     auto timeline = ruler.withTrimmedLeft (labelWidth + 8);
 
-    graphics.setColour (SampleStackTheme::mutedText());
-    graphics.setFont (juce::Font (9.5f));
-
     double duration = 0.0;
     if (preSampleBuffer != nullptr && preSampleRate > 0.0)
         duration = juce::jmax (duration, (double) preSampleBuffer->getNumSamples() / preSampleRate);
     if (mainSampleBuffer != nullptr && mainSampleRate > 0.0)
         duration = juce::jmax (duration, (double) mainSampleBuffer->getNumSamples() / mainSampleRate);
 
+    graphics.setColour (SampleStackTheme::mutedText());
+    graphics.setFont (juce::Font (9.5f));
+
     for (int tick = 0; tick <= 8; ++tick)
     {
         const float x = (float) timeline.getX()
             + timeline.getWidth() * (float) tick / 8.0f;
 
-        juce::String label;
-        if (duration > 0.0)
-            label = juce::String (duration * (double) tick / 8.0, 2) + " s";
-        else
-            label = juce::String (tick * 12.5, 1) + "%";
+        const auto label = duration > 0.0
+            ? juce::String (duration * (double) tick / 8.0, 2) + " s"
+            : juce::String (tick * 12.5, 1) + "%";
 
         graphics.drawText (label,
                            juce::Rectangle<int> (juce::roundToInt (x - 22.0f),
@@ -58,18 +56,19 @@ void WaveformDisplay::paint (juce::Graphics& graphics)
     }
 
     auto preLane = content.removeFromTop (content.getHeight() / 2 - 4);
-    auto gap = content.removeFromTop (8);
-    juce::ignoreUnused (gap);
+    content.removeFromTop (8);
     auto mainLane = content;
 
-    drawLane (graphics, preSampleBuffer, SampleStackTheme::preSample(),
-              "PRE-SAMPLE", preLane);
-    drawLane (graphics, mainSampleBuffer, SampleStackTheme::mainSample(),
-              "MAIN SAMPLE", mainLane);
+    drawLane (graphics, preSampleBuffer, preSampleRate, duration,
+              SampleStackTheme::preSample(), "PRE-SAMPLE", preLane);
+    drawLane (graphics, mainSampleBuffer, mainSampleRate, duration,
+              SampleStackTheme::mainSample(), "MAIN SAMPLE", mainLane);
 }
 
 void WaveformDisplay::drawLane (juce::Graphics& graphics,
                                 const juce::AudioBuffer<float>* source,
+                                double sourceSampleRate,
+                                double timelineDuration,
                                 juce::Colour colour,
                                 const juce::String& label,
                                 const juce::Rectangle<int>& laneBounds) const
@@ -112,20 +111,30 @@ void WaveformDisplay::drawLane (juce::Graphics& graphics,
         return;
     }
 
+    if (sourceSampleRate <= 0.0 || timelineDuration <= 0.0 || waveArea.getWidth() < 2)
+        return;
+
     const int sampleCount = source->getNumSamples();
     const int pixelCount = waveArea.getWidth();
     const float centreY = (float) waveArea.getCentreY();
     const float amplitudeScale = (float) waveArea.getHeight() * 0.46f;
+    const double secondsPerPixel = timelineDuration / (double) pixelCount;
 
     juce::Path waveform;
     waveform.preallocateSpace (pixelCount * 3);
 
     for (int pixel = 0; pixel < pixelCount; ++pixel)
     {
-        const int start = juce::jlimit (0, sampleCount - 1,
-            (int) ((long long) pixel * sampleCount / pixelCount));
+        const double pixelStartTime = (double) pixel * secondsPerPixel;
+        const double pixelEndTime = (double) (pixel + 1) * secondsPerPixel;
+
+        const int start = juce::jlimit (0, sampleCount,
+            (int) (pixelStartTime * sourceSampleRate));
+        if (start >= sampleCount)
+            continue;
+
         const int end = juce::jlimit (start + 1, sampleCount,
-            (int) ((long long) (pixel + 1) * sampleCount / pixelCount));
+            (int) (pixelEndTime * sourceSampleRate) + 1);
 
         float minimum = 0.0f;
         float maximum = 0.0f;
