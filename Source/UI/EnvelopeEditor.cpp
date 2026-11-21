@@ -31,8 +31,11 @@ void EnvelopeEditor::paint (juce::Graphics& graphics)
     const auto bounds = getLocalBounds().toFloat();
     const auto graph = getGraphBounds();
 
-    graphics.setColour (SampleStackTheme::panel());
-    graphics.fillRoundedRectangle (bounds, 6.0f);
+    // Flat dark "screen" with a thin border, matching the waveform display.
+    graphics.setColour (SampleStackTheme::simpler::display());
+    graphics.fillRect (bounds);
+    graphics.setColour (SampleStackTheme::simpler::fieldBorder());
+    graphics.drawRect (bounds, 1.0f);
 
     graphics.setColour (SampleStackTheme::text());
     graphics.setFont (juce::Font (11.0f, juce::Font::bold));

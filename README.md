@@ -23,6 +23,12 @@ Source/
 └── UI/          # Custom look, envelope graph, waveform drawing and controls
 ```
 
+## UI style
+
+The interface follows the layout language of Ableton's Simpler Sample tab: grey panel chrome, flat inset value fields, rounded-top tabs, and dark "screens" for the waveform and envelope. Layer colours are unchanged (blue main, orange pre-sample) so the two lanes stay distinguishable, and lit loop buttons take their layer's colour.
+
+`SampleStackLookAndFeel` (Source/UI/CustomLookAndFeel.*) is driven by component properties rather than subclasses: `"tab"`, `"dot"`, `"dotOn"`, `"arrow"`, `"icon"` (`oneShot`, `loopFwd`, `loopAlt`) and `"accent"` on buttons, `"arrow"` on `LinearBar` sliders, and `"field"` on labels. The palette lives in `SampleStackTheme::simpler`.
+
 ## Playback behavior
 
 SampleStack currently uses one main voice and one pre-sample voice. A MIDI note-on restarts both loaded layers. MIDI note-off does not stop a voice; playback is one-shot unless the corresponding loop is enabled. MIDI note 60 is the current root pitch.

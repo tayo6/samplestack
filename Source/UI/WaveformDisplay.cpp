@@ -3,6 +3,41 @@
 #include <array>
 #include <cmath>
 #include <utility>
+#include <vector>
+
+namespace
+{
+    namespace simpler = SampleStackTheme::simpler;
+
+    // Round tick times (seconds) at least ~80 px apart, like Simpler's time ruler.
+    std::vector<double> getRulerTicks (double durationSeconds, int widthPixels)
+    {
+        std::vector<double> ticks;
+        if (durationSeconds <= 0.0 || widthPixels < 2)
+            return ticks;
+
+        static constexpr std::array<double, 15> steps {{
+            0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0
+        }};
+
+        const double pixelsPerSecond = (double) widthPixels / durationSeconds;
+        double step = steps.back();
+        for (const double candidate : steps)
+        {
+            if (candidate * pixelsPerSecond >= 80.0)
+            {
+                step = candidate;
+                break;
+            }
+        }
+
+        const int count = (int) std::floor (durationSeconds / step + 1.0e-9);
+        for (int i = 0; i <= count; ++i)
+            ticks.push_back ((double) i * step);
+
+        return ticks;
+    }
+}
 
 void WaveformDisplay::setWaveformSources (const juce::AudioBuffer<float>* preSample,
                                           double newPreSampleRate,
@@ -75,8 +110,11 @@ WaveformDisplay::LaneGeometry WaveformDisplay::getLaneGeometry (bool isPreSample
 
 void WaveformDisplay::paint (juce::Graphics& graphics)
 {
-    graphics.setColour (SampleStackTheme::panel());
-    graphics.fillRoundedRectangle (getLocalBounds().toFloat(), 6.0f);
+    // Flat black "screen" with a thin border, as in Simpler's sample display.
+    graphics.setColour (simpler::display());
+    graphics.fillRect (getLocalBounds().toFloat());
+    graphics.setColour (simpler::fieldBorder());
+    graphics.drawRect (getLocalBounds().toFloat(), 1.0f);
 
     auto content = getLocalBounds().reduced (12, 9);
     auto heading = content.removeFromTop (19);
@@ -89,18 +127,20 @@ void WaveformDisplay::paint (juce::Graphics& graphics)
     const double timelineDuration = juce::jmax (getLaneGeometry (true).duration,
                                                  getLaneGeometry (false).duration);
 
-    graphics.setColour (SampleStackTheme::mutedText());
-    graphics.setFont (juce::Font (9.5f));
-    for (int tick = 0; tick <= 8; ++tick)
+    graphics.setFont (juce::Font (11.0f));
+    for (const double tickTime : getRulerTicks (timelineDuration, timeline.getWidth()))
     {
         const float x = (float) timeline.getX()
-            + timeline.getWidth() * (float) tick / 8.0f;
-        const auto label = timelineDuration > 0.0
-            ? juce::String (timelineDuration * (double) tick / 8.0, 2) + " s"
-            : juce::String (tick * 12.5, 1) + "%";
-        graphics.drawText (label,
-            juce::Rectangle<int> (juce::roundToInt (x - 22.0f), ruler.getY(), 44, ruler.getHeight()),
-            juce::Justification::centred, false);
+            + (float) (tickTime / timelineDuration) * (float) timeline.getWidth();
+
+        graphics.setColour (simpler::rulerTick());
+        graphics.fillRect (x, (float) ruler.getY() + 4.0f, 1.0f, (float) ruler.getHeight() - 4.0f);
+
+        graphics.setColour (simpler::rulerText());
+        graphics.drawText (SampleStackTheme::formatRulerTime (tickTime),
+                           juce::Rectangle<float> (x + 3.0f, (float) ruler.getY(),
+                                                   70.0f, (float) ruler.getHeight()),
+                           juce::Justification::centredLeft, false);
     }
 
     drawLane (graphics, getLaneGeometry (true), preSampleBuffer, preSampleRate,
@@ -120,8 +160,8 @@ void WaveformDisplay::drawLane (juce::Graphics& graphics, const LaneGeometry& ge
     if (geometry.bounds.isEmpty())
         return;
 
-    graphics.setColour (SampleStackTheme::background().brighter (0.025f));
-    graphics.fillRoundedRectangle (geometry.bounds.toFloat(), 3.0f);
+    graphics.setColour (simpler::display().darker (0.18f));
+    graphics.fillRect (geometry.bounds.toFloat());
 
     auto labelArea = geometry.bounds.withWidth (116).reduced (8, 0);
     auto waveArea = geometry.waveform;
@@ -135,15 +175,32 @@ void WaveformDisplay::drawLane (juce::Graphics& graphics, const LaneGeometry& ge
                              labelArea.withTrimmedTop (geometry.bounds.getHeight() / 2),
                              juce::Justification::centredLeft, 1);
 
-    graphics.setColour (SampleStackTheme::border().withAlpha (0.75f));
+    // Zero line in the layer colour, like the thin orange centre line in Simpler.
+    graphics.setColour (colour.withAlpha (0.45f));
     graphics.drawHorizontalLine (waveArea.getCentreY(), (float) waveArea.getX(),
                                  (float) waveArea.getRight());
-    for (int tick = 0; tick <= 8; ++tick)
+
+    // Grid lines share the ruler's tick positions so they line up with its labels.
+    graphics.setColour (SampleStackTheme::border().withAlpha (0.45f));
+    const auto gridTicks = getRulerTicks (timelineDuration, waveArea.getWidth());
+    if (! gridTicks.empty())
     {
-        const float x = (float) waveArea.getX() + waveArea.getWidth() * (float) tick / 8.0f;
-        graphics.setColour (SampleStackTheme::border().withAlpha (0.45f));
-        graphics.drawVerticalLine (juce::roundToInt (x), (float) waveArea.getY(),
-                                   (float) waveArea.getBottom());
+        for (const double tickTime : gridTicks)
+        {
+            const float x = (float) waveArea.getX()
+                + (float) (tickTime / timelineDuration) * (float) waveArea.getWidth();
+            graphics.drawVerticalLine (juce::roundToInt (x), (float) waveArea.getY(),
+                                       (float) waveArea.getBottom());
+        }
+    }
+    else
+    {
+        for (int tick = 0; tick <= 8; ++tick)
+        {
+            const float x = (float) waveArea.getX() + waveArea.getWidth() * (float) tick / 8.0f;
+            graphics.drawVerticalLine (juce::roundToInt (x), (float) waveArea.getY(),
+                                       (float) waveArea.getBottom());
+        }
     }
 
     if (source == nullptr || source->getNumChannels() == 0 || source->getNumSamples() < 2)
@@ -221,17 +278,33 @@ void WaveformDisplay::drawLane (juce::Graphics& graphics, const LaneGeometry& ge
 
     const float startX = markerX (markers.start);
     const float endX = markerX (markers.end);
-    graphics.setColour (SampleStackTheme::text().withAlpha (0.92f));
+
+    // Dim everything outside Start/End, as Simpler does.
+    const float laneLeft = (float) waveArea.getX();
+    const float laneRight = (float) waveArea.getRight();
+    const float clampedStartX = juce::jlimit (laneLeft, laneRight, startX);
+    const float clampedEndX = juce::jlimit (laneLeft, laneRight, endX);
+    graphics.setColour (juce::Colours::black.withAlpha (0.45f));
+    graphics.fillRect (laneLeft, (float) waveArea.getY(),
+                       clampedStartX - laneLeft, (float) waveArea.getHeight());
+    graphics.fillRect (clampedEndX, (float) waveArea.getY(),
+                       laneRight - clampedEndX, (float) waveArea.getHeight());
+
+    // Start/End handles: grey side triangles on thin lines (start points right, end left).
+    const float handleY = (float) waveArea.getY() + 10.0f;
+    graphics.setColour (simpler::handle());
     graphics.drawVerticalLine (juce::roundToInt (startX), (float) waveArea.getY(),
                                (float) waveArea.getBottom());
     graphics.drawVerticalLine (juce::roundToInt (endX), (float) waveArea.getY(),
                                (float) waveArea.getBottom());
-    graphics.fillTriangle (startX - 4.0f, (float) waveArea.getY(),
-                           startX + 4.0f, (float) waveArea.getY(),
-                           startX, (float) waveArea.getY() + 7.0f);
-    graphics.fillTriangle (endX - 4.0f, (float) waveArea.getY(),
-                           endX + 4.0f, (float) waveArea.getY(),
-                           endX, (float) waveArea.getY() + 7.0f);
+    juce::Path startHandle;
+    startHandle.addTriangle (startX, handleY - 6.0f, startX, handleY + 6.0f,
+                             startX + 9.0f, handleY);
+    graphics.fillPath (startHandle);
+    juce::Path endHandle;
+    endHandle.addTriangle (endX, handleY - 6.0f, endX, handleY + 6.0f,
+                           endX - 9.0f, handleY);
+    graphics.fillPath (endHandle);
 
     if (playbackPosition >= 0.0f && playbackPosition <= 1.0f)
     {

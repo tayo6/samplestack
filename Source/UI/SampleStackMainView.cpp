@@ -3,9 +3,15 @@
 
 namespace
 {
+    namespace simpler = SampleStackTheme::simpler;
+
     const std::array<const char*, 5> pageNames {{
-        "SAMPLE", "PITCH / OSC", "FILTER", "MOD", "MIDI"
+        "Sample", "Pitch/Osc", "Filter/Global", "Modulation", "MIDI"
     }};
+
+    // Cosmetic LED dots on the tabs, as in Simpler (Pitch/Osc, Filter/Global, Modulation).
+    constexpr std::array<bool, 5> pageHasDot {{ false, true, true, true, false }};
+    constexpr std::array<bool, 5> pageDotLit {{ false, false, true, false, false }};
 }
 
 SampleStackMainView::SampleStackMainView()
@@ -16,13 +22,14 @@ SampleStackMainView::SampleStackMainView()
     {
         pageButtons[i] = std::make_unique<juce::TextButton> (pageNames[i]);
         pageButtons[i]->setClickingTogglesState (true);
-        pageButtons[i]->setColour (juce::TextButton::buttonColourId, SampleStackTheme::panel());
+        pageButtons[i]->getProperties().set ("tab", true);
+        pageButtons[i]->getProperties().set ("dot", pageHasDot[i]);
+        pageButtons[i]->getProperties().set ("dotOn", pageDotLit[i]);
         pageButtons[i]->onClick = [this, i] { selectPage ((Page) i); };
         addAndMakeVisible (*pageButtons[i]);
     }
     pageButtons[0]->setToggleState (true, juce::dontSendNotification);
 
-    expandButton.setColour (juce::TextButton::buttonColourId, SampleStackTheme::panelRaised());
     expandButton.onClick = [this] { if (onExpandRequested) onExpandRequested(); };
     addAndMakeVisible (expandButton);
 
@@ -30,6 +37,13 @@ SampleStackMainView::SampleStackMainView()
     loadPreButton.onClick = [this] { if (onLoadRequested) onLoadRequested (true); };
     mainLoopButton.setClickingTogglesState (true);
     preLoopButton.setClickingTogglesState (true);
+
+    // Lit loop buttons take their layer's colour so main and pre-sample stay distinguishable.
+    mainLoopButton.getProperties().set ("accent",
+        (juce::int64) SampleStackTheme::mainSample().getARGB());
+    preLoopButton.getProperties().set ("accent",
+        (juce::int64) SampleStackTheme::preSample().getARGB());
+
     mainLoopButton.onClick = [this]
     {
         if (onLoopToggled) onLoopToggled (false, mainLoopButton.getToggleState());
@@ -116,33 +130,37 @@ void SampleStackMainView::selectPage (Page page)
 
 void SampleStackMainView::paint (juce::Graphics& graphics)
 {
-    graphics.fillAll (SampleStackTheme::background());
+    graphics.fillAll (simpler::panel());
     auto bounds = getLocalBounds();
     auto header = bounds.removeFromTop (43);
 
-    graphics.setColour (SampleStackTheme::panel());
+    // Title bar: Simpler-style device-on circle and device name on the grey panel.
+    graphics.setColour (simpler::panel().darker (0.06f));
     graphics.fillRect (header);
-    graphics.setColour (SampleStackTheme::preSample());
-    graphics.fillRoundedRectangle (14.0f, 13.0f, 17.0f, 17.0f, 4.0f);
-    graphics.setColour (SampleStackTheme::text());
-    graphics.setFont (juce::Font (18.0f, juce::Font::bold));
+    graphics.setColour (simpler::orange());
+    graphics.fillEllipse (14.0f, 13.0f, 17.0f, 17.0f);
+    graphics.setColour (simpler::fieldBorder());
+    graphics.drawEllipse (14.5f, 13.5f, 16.0f, 16.0f, 1.0f);
+    graphics.setColour (simpler::text());
+    graphics.setFont (juce::Font (17.0f, juce::Font::bold));
     graphics.drawText ("SampleStack", 40, 0, 170, 43, juce::Justification::centredLeft);
-    graphics.setColour (SampleStackTheme::mutedText());
+    graphics.setColour (simpler::textDim());
     graphics.setFont (juce::Font (9.5f));
     graphics.drawText ("DUAL-LAYER SAMPLER",
                        header.withTrimmedLeft (205).withTrimmedRight (108),
                        juce::Justification::centredRight, false);
 
     auto tabBar = bounds.removeFromTop (37);
-    graphics.setColour (SampleStackTheme::background().brighter (0.035f));
+    graphics.setColour (simpler::panel().darker (0.12f));
     graphics.fillRect (tabBar);
 
     if (selectedPage == Page::Sample)
         return;
 
+    // Placeholder pages are dark "screens" on the grey chrome, like Simpler's displays.
     auto panel = bounds.reduced (16);
-    graphics.setColour (SampleStackTheme::panel());
-    graphics.fillRoundedRectangle (panel.toFloat(), 6.0f);
+    graphics.setColour (simpler::display());
+    graphics.fillRect (panel.toFloat());
     graphics.setColour (SampleStackTheme::text());
     graphics.setFont (juce::Font (17.0f, juce::Font::bold));
 
@@ -192,15 +210,18 @@ void SampleStackMainView::resized()
     auto area = getLocalBounds();
     area.removeFromTop (43);
     auto tabBar = area.removeFromTop (37);
+    // Tabs sit flush on the bottom edge of the strip (rounded tops, like Simpler).
+    const int tabY = tabBar.getY() + 7;
+    const int tabHeight = tabBar.getHeight() - 7;
     const int buttonY = tabBar.getY() + 4;
     const int buttonHeight = tabBar.getHeight() - 8;
-    const int buttonWidth = juce::jlimit (72, 112, (getWidth() - 145) / 5);
+    const int buttonWidth = juce::jlimit (92, 124, (getWidth() - 145) / 5);
 
     int x = 10;
     for (auto& button : pageButtons)
     {
-        button->setBounds (x, buttonY, buttonWidth, buttonHeight);
-        x += buttonWidth + 4;
+        button->setBounds (x, tabY, buttonWidth, tabHeight);
+        x += buttonWidth + 3;
     }
     expandButton.setBounds (getWidth() - 94, buttonY, 84, buttonHeight);
 
