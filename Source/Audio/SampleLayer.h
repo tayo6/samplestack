@@ -7,7 +7,7 @@ class SampleLayer
 public:
     SampleLayer() = default;
 
-    void setAudioData (const juce::AudioBuffer<float>& source,
+    void setAudioData (juce::AudioBuffer<float>&& source,
                        double sourceSampleRate,
                        const juce::String& sourceName);
     void clear();

@@ -1,6 +1,7 @@
 #include "SamplerEngine.h"
 #include <cmath>
 #include <limits>
+#include <utility>
 
 SamplerEngine::SamplerEngine()
 {
@@ -56,9 +57,22 @@ bool SamplerEngine::loadSampleFromFile (bool isPreSample,
     }
 
     {
+        // Swap decoded data into the layer. The lock hold is short: no large
+        // audio-buffer allocation or sample copy takes place while audio runs.
         const juce::ScopedLock lock (sampleDataLock);
         auto& destination = isPreSample ? preSample : mainSample;
-        destination.setAudioData (decoded, reader->sampleRate, file.getFileName());
+        destination.setAudioData (std::move (decoded), reader->sampleRate, file.getFileName());
+
+        if (isPreSample)
+        {
+            preVoice = {};
+            prePlaybackPosition.store (-1.0f);
+        }
+        else
+        {
+            mainVoice = {};
+            mainPlaybackPosition.store (-1.0f);
+        }
     }
 
     errorMessage.clear();
@@ -125,19 +139,17 @@ void SamplerEngine::renderVoiceSample (Voice& voice, const SampleLayer& layer,
     const auto& audio = layer.getAudioData();
     const int length = audio.getNumSamples();
 
-    if (voice.position >= voice.endPosition || voice.position >= (double) length)
+    // In loop mode, wrap at loopEnd rather than at the sample end marker.
+    if (voice.loopEnabled && voice.position >= voice.loopEnd)
     {
-        if (voice.loopEnabled && voice.loopEnd > voice.loopStart + 1.0)
-        {
-            const double loopLength = voice.loopEnd - voice.loopStart;
-            voice.position = voice.loopStart
-                + std::fmod (juce::jmax (0.0, voice.position - voice.loopStart), loopLength);
-        }
-        else
-        {
-            voice.active = false;
-            return;
-        }
+        const double loopLength = voice.loopEnd - voice.loopStart;
+        voice.position = voice.loopStart
+            + std::fmod (juce::jmax (0.0, voice.position - voice.loopStart), loopLength);
+    }
+    else if (voice.position >= voice.endPosition || voice.position >= (double) length)
+    {
+        voice.active = false;
+        return;
     }
 
     const int first = juce::jlimit (0, length - 1, (int) voice.position);

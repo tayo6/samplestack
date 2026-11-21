@@ -1,14 +1,11 @@
 #include "SampleLayer.h"
+#include <utility>
 
-void SampleLayer::setAudioData (const juce::AudioBuffer<float>& source,
+void SampleLayer::setAudioData (juce::AudioBuffer<float>&& source,
                                 double sourceSampleRate,
                                 const juce::String& newSourceName)
 {
-    audioData.setSize (source.getNumChannels(), source.getNumSamples(), false, false, true);
-
-    for (int channel = 0; channel < source.getNumChannels(); ++channel)
-        audioData.copyFrom (channel, 0, source, channel, 0, source.getNumSamples());
-
+    audioData = std::move (source);
     sampleRate = sourceSampleRate;
     sourceName = newSourceName;
 }
