@@ -4,8 +4,6 @@
 #include "../Audio/SamplerEngine.h"
 #include "../Parameters/SamplerParameters.h"
 
-// Thin JUCE host adapter. DSP and sample ownership stay in Audio/;
-// automatable values and their identifiers stay in Parameters/.
 class SampleStackAudioProcessor final : public juce::AudioProcessor
 {
 public:
@@ -34,11 +32,21 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    bool loadSampleFile (bool isPreSample, const juce::File& file, juce::String& errorMessage);
+    void copySampleForDisplay (bool isPreSample, juce::AudioBuffer<float>& destination,
+                               double& sourceSampleRate, juce::String& sourceName) const;
+    void setParameterNormalized (const juce::String& parameterID, float normalizedValue);
+    float getParameterValue (const juce::String& parameterID) const noexcept;
+
+    float getMainPlaybackPosition() const noexcept;
+    float getPrePlaybackPosition() const noexcept;
     SamplerEngine& getSamplerEngine() noexcept;
     const SamplerEngine& getSamplerEngine() const noexcept;
     juce::AudioProcessorValueTreeState& getParameterState() noexcept;
 
 private:
+    SamplerPlaybackSettings getPlaybackSettings() const noexcept;
+
     SamplerEngine samplerEngine;
     juce::AudioProcessorValueTreeState parameterState;
 

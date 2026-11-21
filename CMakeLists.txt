@@ -4,7 +4,7 @@ cmake_policy(SET CMP0091 NEW)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL" CACHE STRING
     "Use the dynamically linked Microsoft C runtime")
 
-project(SampleStack VERSION 0.3.0 LANGUAGES C CXX)
+project(SampleStack VERSION 0.5.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,6 +68,7 @@ endif()
 target_link_libraries(SampleStack
     PRIVATE
         juce::juce_audio_utils
+        juce::juce_audio_formats
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags
