@@ -3,25 +3,29 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 
-// Draws both sample layers in one shared time display.
-// The buffers are non-owning references; their owning SampleLayer objects
-// must outlive this component. Replace/update them from the message thread.
+// Shared time ruler with two independent waveform lanes.
+// Audio buffers are non-owning references and must remain stable while displayed.
 class WaveformDisplay final : public juce::Component
 {
 public:
     WaveformDisplay() = default;
 
     void setWaveformSources (const juce::AudioBuffer<float>* preSample,
-                             const juce::AudioBuffer<float>* mainSample);
+                             double preSampleRate,
+                             const juce::AudioBuffer<float>* mainSample,
+                             double mainSampleRate);
 
     void paint (juce::Graphics& graphics) override;
 
 private:
-    void drawWaveform (juce::Graphics& graphics,
-                       const juce::AudioBuffer<float>* source,
-                       juce::Colour colour,
-                       const juce::Rectangle<int>& area) const;
+    void drawLane (juce::Graphics& graphics,
+                   const juce::AudioBuffer<float>* source,
+                   juce::Colour colour,
+                   const juce::String& label,
+                   const juce::Rectangle<int>& laneBounds) const;
 
     const juce::AudioBuffer<float>* preSampleBuffer = nullptr;
     const juce::AudioBuffer<float>* mainSampleBuffer = nullptr;
+    double preSampleRate = 0.0;
+    double mainSampleRate = 0.0;
 };

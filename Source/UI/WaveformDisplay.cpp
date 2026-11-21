@@ -2,48 +2,120 @@
 #include "SampleStackTheme.h"
 
 void WaveformDisplay::setWaveformSources (const juce::AudioBuffer<float>* preSample,
-                                          const juce::AudioBuffer<float>* mainSample)
+                                          double newPreSampleRate,
+                                          const juce::AudioBuffer<float>* mainSample,
+                                          double newMainSampleRate)
 {
     preSampleBuffer = preSample;
     mainSampleBuffer = mainSample;
+    preSampleRate = newPreSampleRate;
+    mainSampleRate = newMainSampleRate;
     repaint();
 }
 
 void WaveformDisplay::paint (juce::Graphics& graphics)
 {
-    auto bounds = getLocalBounds();
-
+    const auto bounds = getLocalBounds();
     graphics.setColour (SampleStackTheme::panel());
     graphics.fillRoundedRectangle (bounds.toFloat(), 6.0f);
 
-    auto waveformArea = bounds.reduced (10);
-    waveformArea.removeFromTop (15);
-    waveformArea.removeFromBottom (8);
+    auto content = bounds.reduced (12, 9);
+    auto heading = content.removeFromTop (19);
 
-    const float centreY = (float) waveformArea.getCentreY();
-    graphics.setColour (SampleStackTheme::border());
-    graphics.drawHorizontalLine (juce::roundToInt (centreY),
-                                 (float) waveformArea.getX(),
-                                 (float) waveformArea.getRight());
+    graphics.setColour (SampleStackTheme::text());
+    graphics.setFont (juce::Font (10.5f, juce::Font::bold));
+    graphics.drawText ("SAMPLE WAVEFORM", heading,
+                       juce::Justification::centredLeft, false);
 
-    // Draw the main sample first so the pre-sample remains visible above it.
-    drawWaveform (graphics, mainSampleBuffer, SampleStackTheme::mainSample(), waveformArea);
-    drawWaveform (graphics, preSampleBuffer, SampleStackTheme::preSample(), waveformArea);
+    auto ruler = content.removeFromTop (23);
+    const int labelWidth = 116;
+    auto timeline = ruler.withTrimmedLeft (labelWidth + 8);
+
+    graphics.setColour (SampleStackTheme::mutedText());
+    graphics.setFont (juce::Font (9.5f));
+
+    double duration = 0.0;
+    if (preSampleBuffer != nullptr && preSampleRate > 0.0)
+        duration = juce::jmax (duration, (double) preSampleBuffer->getNumSamples() / preSampleRate);
+    if (mainSampleBuffer != nullptr && mainSampleRate > 0.0)
+        duration = juce::jmax (duration, (double) mainSampleBuffer->getNumSamples() / mainSampleRate);
+
+    for (int tick = 0; tick <= 8; ++tick)
+    {
+        const float x = (float) timeline.getX()
+            + timeline.getWidth() * (float) tick / 8.0f;
+
+        juce::String label;
+        if (duration > 0.0)
+            label = juce::String (duration * (double) tick / 8.0, 2) + " s";
+        else
+            label = juce::String (tick * 12.5, 1) + "%";
+
+        graphics.drawText (label,
+                           juce::Rectangle<int> (juce::roundToInt (x - 22.0f),
+                                                 ruler.getY(), 44, ruler.getHeight()),
+                           juce::Justification::centred, false);
+    }
+
+    auto preLane = content.removeFromTop (content.getHeight() / 2 - 4);
+    auto gap = content.removeFromTop (8);
+    juce::ignoreUnused (gap);
+    auto mainLane = content;
+
+    drawLane (graphics, preSampleBuffer, SampleStackTheme::preSample(),
+              "PRE-SAMPLE", preLane);
+    drawLane (graphics, mainSampleBuffer, SampleStackTheme::mainSample(),
+              "MAIN SAMPLE", mainLane);
 }
 
-void WaveformDisplay::drawWaveform (juce::Graphics& graphics,
-                                    const juce::AudioBuffer<float>* source,
-                                    juce::Colour colour,
-                                    const juce::Rectangle<int>& area) const
+void WaveformDisplay::drawLane (juce::Graphics& graphics,
+                                const juce::AudioBuffer<float>* source,
+                                juce::Colour colour,
+                                const juce::String& label,
+                                const juce::Rectangle<int>& laneBounds) const
 {
-    if (source == nullptr || source->getNumChannels() == 0
-        || source->getNumSamples() < 2 || area.getWidth() < 2 || area.getHeight() < 2)
+    if (laneBounds.isEmpty())
         return;
 
+    graphics.setColour (SampleStackTheme::background().brighter (0.025f));
+    graphics.fillRoundedRectangle (laneBounds.toFloat(), 3.0f);
+
+    auto labelArea = laneBounds.withWidth (116).reduced (8, 0);
+    auto waveArea = laneBounds.withTrimmedLeft (124).reduced (0, 7);
+
+    graphics.setColour (colour);
+    graphics.setFont (juce::Font (9.5f, juce::Font::bold));
+    graphics.drawText (label, labelArea,
+                       juce::Justification::centredLeft, false);
+
+    graphics.setColour (SampleStackTheme::border().withAlpha (0.75f));
+    graphics.drawHorizontalLine (waveArea.getCentreY(),
+                                 (float) waveArea.getX(),
+                                 (float) waveArea.getRight());
+
+    for (int tick = 0; tick <= 8; ++tick)
+    {
+        const float x = (float) waveArea.getX()
+            + waveArea.getWidth() * (float) tick / 8.0f;
+        graphics.setColour (SampleStackTheme::border().withAlpha (0.45f));
+        graphics.drawVerticalLine (juce::roundToInt (x),
+                                   (float) waveArea.getY(),
+                                   (float) waveArea.getBottom());
+    }
+
+    if (source == nullptr || source->getNumChannels() == 0 || source->getNumSamples() < 2)
+    {
+        graphics.setColour (SampleStackTheme::mutedText().withAlpha (0.8f));
+        graphics.setFont (juce::Font (10.0f));
+        graphics.drawText (label == "PRE-SAMPLE" ? "No pre-sample loaded" : "No main sample loaded",
+                           waveArea, juce::Justification::centred, false);
+        return;
+    }
+
     const int sampleCount = source->getNumSamples();
-    const int pixelCount = area.getWidth();
-    const float centreY = (float) area.getCentreY();
-    const float amplitudeScale = (float) area.getHeight() * 0.46f;
+    const int pixelCount = waveArea.getWidth();
+    const float centreY = (float) waveArea.getCentreY();
+    const float amplitudeScale = (float) waveArea.getHeight() * 0.46f;
 
     juce::Path waveform;
     waveform.preallocateSpace (pixelCount * 3);
@@ -68,11 +140,11 @@ void WaveformDisplay::drawWaveform (juce::Graphics& graphics,
             }
         }
 
-        const float x = (float) (area.getX() + pixel);
+        const float x = (float) (waveArea.getX() + pixel);
         waveform.startNewSubPath (x, centreY - maximum * amplitudeScale);
         waveform.lineTo (x, centreY - minimum * amplitudeScale);
     }
 
     graphics.setColour (colour);
-    graphics.strokePath (waveform, juce::PathStrokeType (1.25f));
+    graphics.strokePath (waveform, juce::PathStrokeType (1.35f));
 }

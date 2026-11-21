@@ -4,7 +4,7 @@ cmake_policy(SET CMP0091 NEW)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL" CACHE STRING
     "Use the dynamically linked Microsoft C runtime")
 
-project(SampleStack VERSION 0.2.0 LANGUAGES C CXX)
+project(SampleStack VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -43,6 +43,8 @@ target_sources(SampleStack
         Source/Audio/SampleLayer.cpp
         Source/Audio/SamplerEngine.cpp
         Source/Parameters/SamplerParameters.cpp
+        Source/UI/CustomLookAndFeel.cpp
+        Source/UI/EnvelopeEditor.cpp
         Source/UI/WaveformDisplay.cpp
         Source/UI/SampleStackMainView.cpp
 )

@@ -1,76 +1,64 @@
 # SampleStack
 
-A personal-use sampler instrument inspired by Ableton Sampler/Simpler, with a dedicated pre-sample (Snapback) layer.
+A personal-use sampler instrument inspired by the workflow and visual language of Ableton Sampler/Simpler, with a dedicated pre-sample (Snapback) layer. SampleStack uses its own branding, artwork and implementation.
 
-## Architecture
-
-The code is separated by responsibility so audio processing, UI rendering, parameters and the JUCE host adapter can be changed independently.
+## UI architecture
 
 ```
-Source/
-├── Audio/
-│   ├── SampleLayer.h/.cpp       # Owns one decoded audio layer
-│   └── SamplerEngine.h/.cpp     # DSP coordinator and future voice scheduler
-├── Parameters/
-│   └── SamplerParameters.h/.cpp # Parameter IDs and automatable parameter layout
-├── Plugin/
-│   ├── PluginProcessor.h/.cpp   # JUCE host adapter and state persistence
-│   └── PluginEditor.h/.cpp      # Host editor shell
-└── UI/
-    ├── SampleStackTheme.h       # Shared colours and visual tokens
-    ├── SampleStackMainView.h/.cpp
-    └── WaveformDisplay.h/.cpp   # Main and pre-sample waveform drawing
+Source/UI/
+├── CustomLookAndFeel.h/.cpp # Shared JUCE button and rotary-knob drawing
+├── EnvelopeEditor.h/.cpp    # Draggable multi-point envelope graph
+├── SampleStackMainView.h/.cpp # Header, navigation, page layout and expand request
+├── SampleStackTheme.h       # Shared colours and visual tokens
+└── WaveformDisplay.h/.cpp   # Shared ruler and separate pre/main waveform lanes
 ```
 
-## Current milestone
+The plug-in editor shell owns host-window sizing and delegates all UI composition to `SampleStackMainView`. Audio processing and sample storage remain in `Source/Audio`; host integration and state persistence remain in `Source/Plugin`; parameter identifiers/layout remain in `Source/Parameters`.
 
-**Modular foundation**
+## Current UI milestone
 
-- JUCE 7.0.12 is pinned through CMake FetchContent.
-- C++17 VST3 instrument, 64-bit Windows build.
-- MIDI input enabled.
-- Audio engine and sample-layer ownership are separate from the plug-in wrapper.
-- Parameters have their own module and are saved/restored by the processor.
-- UI theme, main view and dual-colour waveform display are separate components.
-- Audio output is intentionally silent until the voice renderer is implemented.
+- Dark, compact sampler layout with Sample, Pitch/Osc, Filter, Mod and MIDI pages.
+- Shared custom LookAndFeel for controls.
+- Two aligned waveform lanes on a common time ruler: amber pre-sample and blue main sample.
+- Draggable envelope control points in the UI.
+- Expand/restore button requests a display-sized editor when the host permits plug-in resizing.
+- Sample playback and DSP binding for the envelope are not implemented yet. Waveform lanes therefore display explicit empty states until actual sample data is loaded.
 
-## Build with GitHub Actions
+## Build
 
-The workflow builds on a Windows 2022 runner using the Visual Studio 2019 (v142) toolset and uploads an artifact named **SampleStack-VST3-x64**.
+JUCE 7.0.12 is fetched and pinned through CMake.
 
-## Local build
-
-Install Visual Studio 2022 with the C++ desktop workload and v142 toolset, plus CMake 3.22 or newer.
+Install Visual Studio 2022 with the C++ desktop workload and the v142 toolset, plus CMake 3.22 or newer.
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -T v142
 cmake --build build --config Release --target SampleStack_VST3 --parallel 2
 ```
 
-Output bundle: `build/SampleStack_artefacts/Release/SampleStack.vst3`.
+The Windows GitHub Actions workflow builds a 64-bit VST3 bundle and uploads `SampleStack-VST3-x64`.
 
 ## Windows 7 compatibility
 
-The project requests the Windows 7 API baseline and uses the v142 toolset in CI. This remains a compatibility target, not a guarantee: test the produced VST3 on Windows 7 SP1 x64 and in the intended FL Studio version. Required Microsoft runtime components and Windows updates may be necessary. A successful GitHub Actions build alone does not prove Windows 7 runtime compatibility.
+The project requests the Windows 7 API baseline and uses the v142 toolset in CI. This remains a compatibility target, not a guarantee: test the built VST3 on Windows 7 SP1 x64 and in the intended FL Studio version. Required Microsoft runtime components and Windows updates may be necessary. A successful GitHub Actions build alone does not prove Windows 7 runtime compatibility.
 
 ## Development rules
 
 - Keep audio processing out of UI classes.
 - Keep JUCE host callbacks in the Plugin layer.
-- Keep parameter IDs in the Parameters module; do not duplicate string literals in controls.
+- Keep parameter IDs in the Parameters module; do not duplicate parameter strings in controls.
 - UI components must not own or mutate audio-thread sample buffers.
-- Before adding sample loading, playback voices or waveform snapshots, define their thread-safe ownership and update path.
-- Keep new DSP features in Audio/ and UI-only drawing/interaction in UI/.
+- Before sample loading or playback, define a thread-safe ownership/update path for waveform snapshots.
+- Put new DSP features in Audio/ and UI-only drawing/interaction in UI/.
 
 ## Planned milestones
 
-1. Verify the modular plugin builds and loads in FL Studio.
+1. Verify the UI milestone builds and loads in FL Studio.
 2. Implement sample loading and playback voices.
-3. Draw main and pre-sample waveforms with a shared timeline and separate colours.
-4. Add trim, loop, reverse, pitch and gain controls.
-5. Add editable multi-curve envelopes.
-6. Add modulation, filtering and independent DAW outputs.
-7. Complete the Ableton-inspired layout and maximized editor mode.
+3. Connect the envelope editor to voice parameters.
+4. Add trim/loop/start/end marker editing.
+5. Add pre-sample timing and independent layer controls.
+6. Add filtering, modulation and independent DAW outputs.
+7. Finish the maximized interface and host resize behavior.
 
 ## JUCE licensing
 
