@@ -51,9 +51,9 @@ void WaveformDisplay::drawWaveform (juce::Graphics& graphics,
     for (int pixel = 0; pixel < pixelCount; ++pixel)
     {
         const int start = juce::jlimit (0, sampleCount - 1,
-            (int) ((int64) pixel * sampleCount / pixelCount));
+            (int) ((long long) pixel * sampleCount / pixelCount));
         const int end = juce::jlimit (start + 1, sampleCount,
-            (int) ((int64) (pixel + 1) * sampleCount / pixelCount));
+            (int) ((long long) (pixel + 1) * sampleCount / pixelCount));
 
         float minimum = 0.0f;
         float maximum = 0.0f;
