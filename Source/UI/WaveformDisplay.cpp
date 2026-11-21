@@ -236,8 +236,8 @@ void WaveformDisplay::drawLane (juce::Graphics& graphics, const LaneGeometry& ge
     if (playbackPosition >= 0.0f && playbackPosition <= 1.0f)
     {
         graphics.setColour (SampleStackTheme::playhead());
-        graphics.drawVerticalLine (juce::roundToInt (markerX (playbackPosition)),
-                                   (float) waveArea.getY(), (float) waveArea.getBottom(), 1.5f);
+        graphics.drawLine (markerX (playbackPosition), (float) waveArea.getY(),
+                           markerX (playbackPosition), (float) waveArea.getBottom(), 1.5f);
     }
 }
 
