@@ -6,8 +6,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Only the newest build for a ref is useful; this prevents every small
-# modular file commit from occupying a separate Windows runner.
 concurrency:
   group: samplestack-windows-vst3-${{ github.ref }}
   cancel-in-progress: true
@@ -34,6 +32,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SampleStack-VST3-x64
-          path: build/SampleStack_artefacts/Release/SampleStack.vst3
+          path: build/SampleStack_artefacts/Release/VST3/SampleStack.vst3
           if-no-files-found: error
           retention-days: 14
