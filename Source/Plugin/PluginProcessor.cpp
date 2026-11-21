@@ -61,7 +61,9 @@ void SampleStackAudioProcessor::changeProgramName (int index, const juce::String
 
 void SampleStackAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto state = parameterState.copyState(); auto xml = state.createXml())
+    auto state = parameterState.copyState();
+
+    if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
@@ -69,7 +71,7 @@ void SampleStackAudioProcessor::setStateInformation (const void* data, int sizeI
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
     {
-        if (xml->hasTagName (parameterState.state.getType()))
+        if (xml->hasTagName (parameterState.state.getType().toString()))
             parameterState.replaceState (juce::ValueTree::fromXml (*xml));
     }
 }
